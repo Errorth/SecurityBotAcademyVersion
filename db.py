@@ -1,13 +1,13 @@
 import sqlite3
+con = sqlite3.connect("Database.db")
 
-con = sqlite3.connect("Da.db")
 cur = con.cursor()
-
 cur.execute("""CREATE TABLE IF NOT EXISTS users(
             id INTEGER PRIMARY KEY,
-            username VARCHAR(255),
+            username TEXT NOT NULL,
             admin BOOLEAN DEFAULT FALSE
 )""")
+
 
 #Cameras
 cur.execute("""CREATE TABLE IF NOT EXISTS C(
@@ -38,8 +38,4 @@ cur.execute("""CREATE TABLE IF NOT EXISTS V(
 cur.execute("""CREATE TABLE IF NOT EXISTS T(
             deviceID VARCHAR(255) UNIQUE,
             ownerID INTEGER
-)""")
-cur.execute("""CREATE TABLE IF NOT EXISTS allDevices(
-            deviceID VARCHAR(255) UNIQUE,
-            deviceType VARCHAR(255)
 )""")

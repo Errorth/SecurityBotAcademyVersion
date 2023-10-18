@@ -1,16 +1,23 @@
-from aiogram import Dispatcher, Bot
-import logging
 import asyncio
-from handlers import router
-import db
-TOKEN = "6448625821:AAECe0YGWT0eh3uOTpfpRVj6w6KtHMSgLO4"
-bot = Bot(token=TOKEN)
-dp = Dispatcher()
+import logging
 
-async def start():
-    dp.include_router(router=router)
-    await dp.start_polling(bot)
+from aiogram import Bot, Dispatcher
+from aiogram.enums.parse_mode import ParseMode
+from aiogram.fsm.storage.memory import MemoryStorage
+from os import getenv
+
+import db
+from handlers import router
+async def main():
+    TOKEN = getenv("TOKEN")
+    bot = Bot(token="6448625821:AAECe0YGWT0eh3uOTpfpRVj6w6KtHMSgLO4", parse_mode=ParseMode.HTML)
+    dp = Dispatcher(storage=MemoryStorage())
+    dp.include_router(router)
+    await bot.delete_webhook(drop_pending_updates=True)
+    await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
+    
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    asyncio.run(start())
+    asyncio.run(main())
