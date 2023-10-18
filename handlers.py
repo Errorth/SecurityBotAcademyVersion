@@ -6,17 +6,20 @@ from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
 from aiogram.filters.callback_data import CallbackData
 from db import cur, con
 
+#Variable instead of dispatcher, for import in main file
 router = Router()
 class NumbersCallbackFactory(CallbackData, prefix="sec"):
     action: str
 
-
+#Start message handler
 @router.message(Command("start"))
 async def echo(message: aiogram.types.Message):
+    #Trying to add user in database
     try:
         cur.execute("""INSERT INTO users(id, username) VALUES(?,?)""", (message.from_user.id, f'{message.from_user.username}'))
         con.commit()
     except:
+        #Case when user already in DB
         pass
     builder = ReplyKeyboardBuilder()
     builder.row(
@@ -29,11 +32,12 @@ async def echo(message: aiogram.types.Message):
     ''', parse_mode="HTML", reply_markup=builder.as_markup(resize_keyboard=True))
 
 
-
+#Command which help u get list of all your cams
 @router.message(Command("get_all_cams"))
 async def get_cams(message: aiogram.types.Message):
     try:
         count = 1
+        #getting from database
         cur.execute("""SELECT * FROM C WHERE ownerID = ?""", (message.from_user.id,))
         global f
         f = cur.fetchall()
@@ -47,9 +51,10 @@ async def get_cams(message: aiogram.types.Message):
         pass
 
 
-
+#Handler for message
 @router.message()
 async def message_chek(message: aiogram.types.Message):
+#If/else construct, checking message's text
     if("Добавить гаджет" in message.text):
         await message.answer("""Введите код устройства, которй указан на его боковой стороне по форме: \"add_device КОД_ДЕВАЙСА-ТИП\"
 Типы:
