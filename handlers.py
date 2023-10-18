@@ -45,15 +45,7 @@ async def echo(message: aiogram.types.Message):
         
     except:
         pass
-#     builder = ReplyKeyboardBuilder()
-#     builder.row(
-#         KeyboardButton(text="Управление гаджетами"),
-#         KeyboardButton(text="Добавить гаджет"),
-#     )
-#     await message.answer('''
-# Добро пожаловать на бета-тест нашей системы безопасности
-# <b>DEU Security</b>
-#     ''', parse_mode="HTML", reply_markup=builder.as_markup(resize_keyboard=True))
+
 
 
 @router.message()
