@@ -30,11 +30,34 @@ async def echo(message: aiogram.types.Message):
 
 
 
+@router.message(Command("get_all_cams"))
+async def echo(message: aiogram.types.Message):
+    try:
+        count = 1
+        cur.execute("""SELECT * FROM C WHERE ownerID = ?""", (message.from_user.id,))
+        global f
+        f = cur.fetchall()
+        msg = "Вот список всех камер, которые привязаны к этому аккаунту:"
+        for i in f:
+            msg += f"\n<b>📹 Камера {count} (<a href=\"DEUSecurity.com/cams/{i[0]}\"><u>{i[0]}</u></a>)</b>"
+            count += 1
+        await message.answer(msg, parse_mode="HTML", disable_web_page_preview=True)
+        
+    except:
+        pass
+#     builder = ReplyKeyboardBuilder()
+#     builder.row(
+#         KeyboardButton(text="Управление гаджетами"),
+#         KeyboardButton(text="Добавить гаджет"),
+#     )
+#     await message.answer('''
+# Добро пожаловать на бета-тест нашей системы безопасности
+# <b>DEU Security</b>
+#     ''', parse_mode="HTML", reply_markup=builder.as_markup(resize_keyboard=True))
 
 
 @router.message()
 async def message_chek(message: aiogram.types.Message):
-  
     if("Добавить гаджет" in message.text):
         await message.answer("""Введите код устройства, которй указан на его боковой стороне по форме: \"add_device КОД_ДЕВАЙСА-ТИП\"
 Типы:
