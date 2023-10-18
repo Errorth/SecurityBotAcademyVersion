@@ -31,7 +31,7 @@ async def echo(message: aiogram.types.Message):
 
 
 @router.message(Command("get_all_cams"))
-async def echo(message: aiogram.types.Message):
+async def get_cams(message: aiogram.types.Message):
     try:
         count = 1
         cur.execute("""SELECT * FROM C WHERE ownerID = ?""", (message.from_user.id,))
