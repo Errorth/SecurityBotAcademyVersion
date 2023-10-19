@@ -1,22 +1,103 @@
 from aiogram import types, F, Router
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import Message, CallbackQuery, InlineKeyboardButton,  KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from aiogram.filters import Command
 from aiogram.filters.callback_data import CallbackData
 from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
 from db import cur, con
-
+from aiogram.fsm.state import StatesGroup, State
+from aiogram.fsm.context import FSMContext
 router = Router()
 
 database = ""
+
 
 
 class MyCallback(CallbackData, prefix="my"):
     foo: str
     bar: int
 
+class AddDevice(StatesGroup):
+    waiting_for_device_id = State()
+    waiting_for_device_type = State()
+
+class StatesMachineDevice():
+    @router.message(Command("cancel"))
+    async def cancel_state_editing(message: Message, state: FSMContext):
+        await state.clear()
+        await message.answer("Добавление устройства отменено", reply_markup=s_builder.as_markup(resize_keyboard=True))
+    async def device_start(message: types.Message, state: FSMContext):
+        
+        global avalible_device_types
+        avalible_device_types = ["C","D","L","T","L","V","W"]
+        keyboard = ReplyKeyboardBuilder()
+        for name in avalible_device_types:
+            keyboard.add(KeyboardButton(text=f"{name}"))
+        await message.answer("""
+Камера - C
+Свет - L
+Дверь - D
+Окно - W
+Чайник - T
+Пылесос - V 
+Выберите тип девайса:""", reply_markup=keyboard.as_markup(resize_keyboard=True))
+        await state.set_state(AddDevice.waiting_for_device_type)
+
+
+
+
+@router.message(AddDevice.waiting_for_device_type)
+async def food_chosen(message: Message, state: FSMContext):
+    if(message.text not in avalible_device_types):
+        
+        await message.answer("Такого типа не существует")
+        await StatesMachineDevice.device_start(message=message, state=state)
+        return
+    await state.update_data(chosen_type=message.text)
+    await message.answer(
+        text="Теперь напишите уникальный ID с боковой стороны устройства:",
+    )
+    await state.set_state(AddDevice.waiting_for_device_id)
+
+
+@router.message(AddDevice.waiting_for_device_id)
+async def food_size_chosen(message: Message, state: FSMContext):
+    
+    user_data = await state.get_data()
+    messageD = await message.answer("Проверяю наличие кода в базе данных")
+    dtype = user_data["chosen_type"]
+    cur.execute(f"SELECT * FROM {dtype} WHERE deviceID = ?", (message.text,))
+    f = cur.fetchall()
+    print(f)
+    if f != []:
+        if message.from_user.id == f[0][1]:
+            await messageD.edit_text("Вы уже добавили это устройство")
+        else:
+            await messageD.edit_text("Это устройство уже добавлено другим пользователем")
+        return
+
+    try: 
+        await messageD.edit_text("Добавляю устройство в базу данных")
+        cur.execute(f"""INSERT INTO {dtype}(deviceID, ownerID) VALUES(?,?)""", (message.text, message.from_user.id))
+        con.commit()
+        await messageD.edit_text("Устройство успешно добавлено в базу данных")
+    except:
+        await messageD.edit_text("Непредвиденная ошибка, обратитесь в тех поддержку")
+    builder = ReplyKeyboardBuilder()
+    builder.row(
+        types.KeyboardButton(text="➕ Добавить девайс"),
+        types.KeyboardButton(text="🔧 Управление девайсами"),
+        types.KeyboardButton(text="⚙️ Настройки")
+    )
+    await message.answer(
+        text=f"Вы добавили {dtype} устройсво с ID {message.text}.\n",
+        reply_markup=builder.as_markup(resize_keyboard=True)
+    )
+    # Сброс состояния и сохранённых данных у пользователя
+    await state.clear()
 
 
 class globalHandlers():
+    
     @router.message(Command("start"))
     async def start_handler(msg: Message):
         try:
@@ -24,8 +105,9 @@ class globalHandlers():
             con.commit()
         except:
             pass
-        builder = ReplyKeyboardBuilder()
-        builder.row(
+        global s_builder
+        s_builder = ReplyKeyboardBuilder()
+        s_builder.row(
         types.KeyboardButton(text="➕ Добавить девайс"),
         types.KeyboardButton(text="🔧 Управление девайсами"),
         types.KeyboardButton(text="⚙️ Настройки")
@@ -33,7 +115,7 @@ class globalHandlers():
         await msg.answer('''
 Здравствуйте, вас приветствует компания <b>DEU Security</b>
 Снизу появилось меню управления ботом, если вы используете его впервые, нажмите на "Добавить девайс"
-''', parse_mode="HTML",reply_markup=builder.as_markup(resize_keyboard=True))
+''', parse_mode="HTML",reply_markup=s_builder.as_markup(resize_keyboard=True))
         
     @router.message(Command("support"))
     async def getSupportContact(message: Message):
@@ -45,9 +127,9 @@ class globalHandlers():
         builder = InlineKeyboardBuilder()
         builder.add(InlineKeyboardButton(text="Тык!", url="http://project7992405.tilda.ws/"))
         await message.answer("<b>Эта кнопка перенаправит вас на наш веб-сайт</b>", parse_mode="HTML", reply_markup=builder.as_markup())
-
+    
     @router.message()
-    async def check_message(message: Message):
+    async def check_message(message: Message, state: FSMContext):
         print(message.text)
         if("Управление девайсами" in message.text):
             # Создаем объекты инлайн-кнопок
@@ -75,40 +157,9 @@ class globalHandlers():
                 reply_markup=builder.as_markup()
             )
         elif("Добавить девайс" in message.text):
-            await message.answer("""Введите код устройства, которй указан на его боковой стороне по форме: \"add_device КОД_ДЕВАЙСА-ТИП\"
-Типы:
-1. Камера - C
-2. Свет - L
-3. Дверь - D
-4. Окно - W
-5. Чайник - T
-6. Пылесос - V                       
+            print("html")
+            await StatesMachineDevice.device_start(message=message, state=state)
 
-Пример: "add_device C27SJ2-C", для добавления Камеры
-                             """)
-        elif(message.text.split()[0] == "add_device"):
-            arg = message.text.split()[1]
-            arg = arg.split("-")
-            argC = arg[0]
-            argT = arg[1]
-            messageD = await message.answer("Проверяю наличие кода в базе данных")
-            cur.execute(f"SELECT * FROM {argT} WHERE deviceID = ?", (argC,))
-            f = cur.fetchall()
-            print(f)
-            if f != []:
-                if message.from_user.id == f[0][1]:
-                    await messageD.edit_text("Вы уже добавили это устройство")
-                else:
-                    await messageD.edit_text("Это устройство уже добавлено другим пользователем")
-                return
-        
-            try: 
-                await messageD.edit_text("Добавляю устройство в базу данных")
-                cur.execute(f"""INSERT INTO {argT}(deviceID, ownerID) VALUES(?,?)""", (argC, message.from_user.id))
-                con.commit()
-                await messageD.edit_text("Устройство успешно добавлено в базу данных")
-            except:
-                await messageD.edit_text("Непредвиденная ошибка, обратитесь в тех поддержку")
         elif("Настройки" in message.text):
             builder = InlineKeyboardBuilder()
             builder.add(InlineKeyboardButton(text=" 📄 Сценарии", callback_data="Scenes"))
@@ -118,9 +169,10 @@ class globalHandlers():
             await message.answer("""Вы зашли в настройки DEU Security
 Снизу вы можете увидеть меню, для управления чат-ботом                                 
 """,parse_mode="HTML",reply_markup=builder.as_markup())
+    @router.message(AddDevice.waiting_for_device_id)
+    async def dtype(message: Message, state: FSMContext):
+        StatesMachineDevice.device_chosen(message=message, state=state)
 
-    
-        
    
 class userHandlers():
     pass
@@ -266,4 +318,3 @@ class callbacks():
             builder.adjust(1,1)
             await query.message.answer("<b>Меню настройки:</b>",parse_mode="HTML", reply_markup=builder.as_markup())
         
-
